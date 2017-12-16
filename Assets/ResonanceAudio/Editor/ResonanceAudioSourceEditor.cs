@@ -31,36 +31,18 @@ public class ResonanceAudioSourceEditor : Editor {
   private SerializedProperty occlusionEnabled = null;
   private SerializedProperty quality = null;
 
-  private GUIContent bypassRoomEffectsLabel = new GUIContent("Bypass Room Effects",
-      "Sets whether the room effects for the source should be bypassed.");
-  private GUIContent directivityLabel = new GUIContent("Source Directivity",
-      "Controls the pattern of sound emission of the source. This can change the perceived " +
-      "loudness of the source depending on which way it is facing relative to the listener. " +
-      "Patterns are aligned to the 'forward' direction of the parent object.");
-  private GUIContent directivityAlphaLabel = new GUIContent("Alpha",
-      "Controls the balance between dipole pattern and omnidirectional pattern for source " +
-      "emission. By varying this value, differing directivity patterns can be formed.");
-  private GUIContent directivitySharpnessLabel = new GUIContent("Sharpness",
-      "Sets the sharpness of the directivity pattern. Higher values will result in increased " +
-      "directivity.");
+  private GUIContent directivityAlphaLabel = new GUIContent("Alpha");
+  private GUIContent directivitySharpnessLabel = new GUIContent("Sharpness");
   private GUIContent listenerDirectivityLabel = new GUIContent("Listener Directivity",
       "Controls the pattern of sound sensitivity of the listener for the source. This can " +
       "change the perceived loudness of the source depending on which way the listener is facing " +
       "relative to the source. Patterns are aligned to the 'forward' direction of the listener.");
-  private GUIContent listenerDirectivityAlphaLabel = new GUIContent("Alpha",
-      "Controls the balance between dipole pattern and omnidirectional pattern for listener " +
-      "sensitivity. By varying this value, differing directivity patterns can be formed.");
-  private GUIContent listenerDirectivitySharpnessLabel = new GUIContent("Sharpness",
-      "Sets the sharpness of the listener directivity pattern. Higher values will result in " +
-      "increased directivity.");
-  private GUIContent gainLabel = new GUIContent("Gain (dB)",
-      "Applies a gain to the source for adjustment of relative loudness.");
-  private GUIContent occlusionLabel = new GUIContent("Enable Occlusion",
-      "Sets whether the sound of the source should be occluded when there are other objects " +
-      "between the source and the listener.");
-  private GUIContent qualityLabel = new GUIContent("Quality",
-      "Sets the quality mode in which the spatial audio will be rendered. " +
-      "Higher quality modes allow for increased fidelity at the cost of greater CPU usage.");
+  private GUIContent sourceDirectivityLabel = new GUIContent("Source Directivity",
+      "Controls the pattern of sound emission of the source. This can change the perceived " +
+      "loudness of the source depending on which way it is facing relative to the listener. " +
+      "Patterns are aligned to the 'forward' direction of the parent object.");
+  private GUIContent gainDbLabel = new GUIContent("Gain (dB)");
+  private GUIContent occlusionEnabledLabel = new GUIContent("Enable Occlusion");
 
   // Target source instance.
   private ResonanceAudioSource source = null;
@@ -88,11 +70,11 @@ public class ResonanceAudioSourceEditor : Editor {
     EditorGUILayout.ObjectField("Script", script, typeof(MonoScript), false);
     EditorGUI.EndDisabledGroup();
 
-    EditorGUILayout.PropertyField(bypassRoomEffects, bypassRoomEffectsLabel);
+    EditorGUILayout.PropertyField(bypassRoomEffects);
 
     EditorGUILayout.Separator();
 
-    EditorGUILayout.Slider(gainDb, ResonanceAudio.minGainDb, ResonanceAudio.maxGainDb, gainLabel);
+    EditorGUILayout.Slider(gainDb, ResonanceAudio.minGainDb, ResonanceAudio.maxGainDb, gainDbLabel);
 
     EditorGUILayout.Separator();
 
@@ -104,8 +86,8 @@ public class ResonanceAudioSourceEditor : Editor {
     EditorGUILayout.BeginVertical();
     GUILayout.Label(listenerDirectivityLabel);
     ++EditorGUI.indentLevel;
-    EditorGUILayout.PropertyField(listenerDirectivityAlpha, listenerDirectivityAlphaLabel);
-    EditorGUILayout.PropertyField(listenerDirectivitySharpness, listenerDirectivitySharpnessLabel);
+    EditorGUILayout.PropertyField(listenerDirectivityAlpha, directivityAlphaLabel);
+    EditorGUILayout.PropertyField(listenerDirectivitySharpness, directivitySharpnessLabel);
     --EditorGUI.indentLevel;
     EditorGUILayout.EndVertical();
     DrawDirectivityPattern(listenerDirectivityAlpha.floatValue,
@@ -116,7 +98,7 @@ public class ResonanceAudioSourceEditor : Editor {
     // Draw the source directivity properties.
     EditorGUILayout.BeginHorizontal();
     EditorGUILayout.BeginVertical();
-    GUILayout.Label(directivityLabel);
+    GUILayout.Label(sourceDirectivityLabel);
     ++EditorGUI.indentLevel;
     EditorGUILayout.PropertyField(directivityAlpha, directivityAlphaLabel);
     EditorGUILayout.PropertyField(directivitySharpness, directivitySharpnessLabel);
@@ -126,11 +108,11 @@ public class ResonanceAudioSourceEditor : Editor {
                            ResonanceAudio.sourceDirectivityColor,
                            (int) (3.0f * EditorGUIUtility.singleLineHeight));
     EditorGUILayout.EndHorizontal();
-    EditorGUILayout.PropertyField(occlusionEnabled, occlusionLabel);
+    EditorGUILayout.PropertyField(occlusionEnabled, occlusionEnabledLabel);
 
     EditorGUILayout.Separator();
 
-    EditorGUILayout.PropertyField(quality, qualityLabel);
+    EditorGUILayout.PropertyField(quality);
     EditorGUI.EndDisabledGroup();
 
     serializedObject.ApplyModifiedProperties();

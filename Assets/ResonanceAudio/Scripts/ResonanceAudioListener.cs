@@ -25,18 +25,27 @@ using System.Collections.Generic;
 [ExecuteInEditMode]
 public class ResonanceAudioListener : MonoBehaviour {
   /// Global gain in decibels to be applied to the processed output.
+  [Tooltip("Sets the global gain for all spatialized audio sources. Can be used to adjust the " +
+           "overall output volume.")]
   public float globalGainDb = 0.0f;
 
   /// Global layer mask to be used in occlusion detection.
+  [Tooltip("Sets the global layer mask for occlusion detection.")]
   public LayerMask occlusionMask = -1;
 
   /// Stereo speaker mode toggle.
+  [Tooltip("Disables HRTF-based rendering and force stereo-panning only rendering for all " +
+           "spatialized audio sources. This mode is recommended only when the audio output is " +
+           "routed to a stereo loudspeaker configuration.")]
   public bool stereoSpeakerModeEnabled = false;
 
   /// Denotes whether the soundfield should be recorded in a seamless loop.
+  [Tooltip("Sets whether the recorded soundfield clip should be saved as a seamless loop.")]
   public bool recorderSeamless = false;
 
   /// Target tag for spatial audio sources to be recorded into soundfield.
+  [Tooltip("Specify by tag which spatialized audio sources will be recorded. Choose " +
+           "\"Untagged\" to include all enabled spatialized audio sources in the scene.")]
   public string recorderSourceTag = "Untagged";
 
   /// Is currently recording soundfield?
@@ -71,10 +80,12 @@ public class ResonanceAudioListener : MonoBehaviour {
   }
 
   void Update() {
-    ResonanceAudio.UpdateAudioListener(this);
     if (Application.isEditor && !Application.isPlaying && !IsRecording) {
       // Update soundfield recorder properties.
       UpdateTaggedSources();
+    } else {
+      // Update global properties.
+      ResonanceAudio.UpdateAudioListener(this);
     }
   }
 
@@ -144,7 +155,7 @@ public class ResonanceAudioListener : MonoBehaviour {
     for (int i = 0; i < sources.Length; ++i) {
       // Untagged is treated as *all* spatial audio sources in the scene.
       if ((recorderSourceTag == "Untagged" || sources[i].tag == recorderSourceTag) &&
-          sources[i].spatialize) {
+          sources[i].enabled && sources[i].spatialize) {
         recorderTaggedSources.Add(sources[i]);
       }
     }

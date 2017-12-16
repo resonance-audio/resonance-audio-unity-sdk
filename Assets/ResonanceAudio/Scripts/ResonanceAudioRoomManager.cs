@@ -1,4 +1,4 @@
-﻿// Copyright 2017 Google Inc. All rights reserved.
+// Copyright 2017 Google Inc. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -85,50 +85,39 @@ public static class ResonanceAudioRoomManager {
 
   /// Adds or removes a Resonance Audio room depending on whether the listener is inside |room|.
   public static void UpdateRoom(ResonanceAudioRoom room) {
-    UpdateRoomEffectsRegion(new RoomEffectsRegion(room), IsListenerInsideRoom(room));
+    UpdateRoomEffectsRegions(room, IsListenerInsideRoom(room));
+    UpdateRoomEffects();
   }
 
   /// Removes a Resonance Audio room.
   public static void RemoveRoom(ResonanceAudioRoom room) {
-    UpdateRoomEffectsRegion(new RoomEffectsRegion(room), false);
+    UpdateRoomEffectsRegions(room, false);
+    UpdateRoomEffects();
   }
 
   /// Adds or removes a Resonance Audio reverb probe depending on whether the listener is inside
   /// |reverbProbe|.
   public static void UpdateReverbProbe(ResonanceAudioReverbProbe reverbProbe) {
-    UpdateRoomEffectsRegion(new RoomEffectsRegion(reverbProbe),
-                            IsListenerInsideVisibleReverbProbe(reverbProbe));
+    UpdateRoomEffectsRegions(reverbProbe, IsListenerInsideVisibleReverbProbe(reverbProbe));
+    UpdateRoomEffects();
   }
 
   /// Removes a Resonance Audio reverb probe.
   public static void RemoveReverbProbe(ResonanceAudioReverbProbe reverbProbe) {
-    UpdateRoomEffectsRegion(new RoomEffectsRegion(reverbProbe), false);
+    UpdateRoomEffectsRegions(reverbProbe, false);
+    UpdateRoomEffects();
   }
 
-  // A class to encapsulate either a ResonanceAudioRoom or a ResonanceAudioReverbProbe. Only one of
+  // A struct to encapsulate either a ResonanceAudioRoom or a ResonanceAudioReverbProbe. Only one of
   // |room| and |reverbProbe| is not null.
-  private class RoomEffectsRegion : IEquatable<RoomEffectsRegion> {
+  private struct RoomEffectsRegion {
     /// Currently active room/reverb probe.
-    public ResonanceAudioRoom room = null;
-    public ResonanceAudioReverbProbe reverbProbe = null;
+    public ResonanceAudioRoom room;
+    public ResonanceAudioReverbProbe reverbProbe;
 
-    /// Constructs an instance that holds a Resonance Audio room.
-    public RoomEffectsRegion(ResonanceAudioRoom room) {
+    public RoomEffectsRegion(ResonanceAudioRoom room, ResonanceAudioReverbProbe reverbProbe) {
       this.room = room;
-      this.reverbProbe = null;
-    }
-
-    /// Constructs an instance that holds a Resonance Audio reverb probe.
-    public RoomEffectsRegion(ResonanceAudioReverbProbe reverbProbe) {
-      this.room = null;
       this.reverbProbe = reverbProbe;
-    }
-
-    /// Determines the equality of this room effects region and |other|. Used in List.Contains(),
-    /// which would by default test for reference equality, while we only care if the encapsulated
-    /// |room| and |reverbProbe| are the same.
-    public bool Equals(RoomEffectsRegion other) {
-      return this.room == other.room && this.reverbProbe == other.reverbProbe;
     }
   }
 
@@ -138,23 +127,48 @@ public static class ResonanceAudioRoomManager {
   // Boundaries instance to be used in room detection logic.
   private static Bounds bounds = new Bounds(Vector3.zero, Vector3.zero);
 
-  // Adds or removes a room effects region and notifies the Resonance Audio class about the one to
-  // be applied (or disables the room effects if there is none).
-  private static void UpdateRoomEffectsRegion(RoomEffectsRegion roomEffectsRegion, bool isEnabled) {
-    if (isEnabled && !roomEffectsRegions.Contains(roomEffectsRegion)) {
-      roomEffectsRegions.Add(roomEffectsRegion);
-    } else if (!isEnabled && roomEffectsRegions.Contains(roomEffectsRegion)) {
-      roomEffectsRegions.Remove(roomEffectsRegion);
+  // Updates the list of room effects regions with the given |room|.
+  private static void UpdateRoomEffectsRegions(ResonanceAudioRoom room, bool isEnabled) {
+    int regionIndex = -1;
+    for (int i = 0; i < roomEffectsRegions.Count; ++i) {
+      if (roomEffectsRegions[i].room == room) {
+        regionIndex = i;
+        break;
+      }
     }
+    if (isEnabled && regionIndex == -1) {
+      roomEffectsRegions.Add(new RoomEffectsRegion(room ,null));
+    } else if (!isEnabled && regionIndex != -1) {
+      roomEffectsRegions.RemoveAt(regionIndex);
+    }
+  }
 
+  // Updates the list of room effects regions with the given |reverbProbe|.
+  private static void UpdateRoomEffectsRegions(ResonanceAudioReverbProbe reverbProbe,
+                                               bool isEnabled) {
+    int regionIndex = -1;
+    for (int i = 0; i < roomEffectsRegions.Count; ++i) {
+      if (roomEffectsRegions[i].reverbProbe == reverbProbe) {
+        regionIndex = i;
+        break;
+      }
+    }
+    if (isEnabled && regionIndex == -1) {
+      roomEffectsRegions.Add(new RoomEffectsRegion(null, reverbProbe));
+    } else if (!isEnabled && regionIndex != -1) {
+      roomEffectsRegions.RemoveAt(regionIndex);
+    }
+  }
+
+  // Updates the room effects of the environment with respect to the current room configuration.
+  private static void UpdateRoomEffects() {
     if (roomEffectsRegions.Count == 0) {
       ResonanceAudio.DisableRoomEffects();
       return;
     }
-
     var lastRoomEffectsRegion = roomEffectsRegions[roomEffectsRegions.Count - 1];
     if (lastRoomEffectsRegion.room != null) {
-      ResonanceAudio.UpdateAudioRoom(lastRoomEffectsRegion.room);
+      ResonanceAudio.UpdateRoom(lastRoomEffectsRegion.room);
     } else {
       ResonanceAudio.UpdateReverbProbe(lastRoomEffectsRegion.reverbProbe);
     }
@@ -178,31 +192,30 @@ public static class ResonanceAudioRoomManager {
   /// |reverb_probe|, subject to the visibility test if |reverbProbe.onlyWhenVisible| is true.
   private static bool IsListenerInsideVisibleReverbProbe(ResonanceAudioReverbProbe reverbProbe) {
     Transform listenerTransform = ResonanceAudio.ListenerTransform;
-    if (listenerTransform != null) {
-      Vector3 relativePosition = listenerTransform.position - reverbProbe.transform.position;
-
-      // First the containing test.
-      if (reverbProbe.runtimeApplicationRegionShape ==
-          ResonanceAudioReverbProbe.ApplicationRegionShape.Sphere) {
-        if (relativePosition.magnitude > reverbProbe.GetScaledSphericalApplicationRegionRadius()) {
-          return false;
-        }
-      } else {
-        Quaternion rotationInverse = Quaternion.Inverse(reverbProbe.transform.rotation);
-        bounds.size = reverbProbe.GetScaledBoxApplicationRegionSize();
-        if (!bounds.Contains(rotationInverse * relativePosition)) {
-          return false;
-        }
-      }
-
-      // Then the visibility test.
-      if (reverbProbe.onlyApplyWhenVisible) {
-        if (ResonanceAudio.ComputeOcclusion(reverbProbe.transform) > 0.0f) {
-          return false;
-        }
-      }
-      return true;
+    if (listenerTransform == null) {
+      return false;
     }
-    return false;
+    Vector3 relativePosition = listenerTransform.position - reverbProbe.transform.position;
+
+    // First the containing test.
+    if (reverbProbe.runtimeApplicationRegionShape ==
+        ResonanceAudioReverbProbe.ApplicationRegionShape.Sphere) {
+      if (relativePosition.magnitude > reverbProbe.GetScaledSphericalApplicationRegionRadius()) {
+        return false;
+      }
+    } else {
+      Quaternion rotationInverse = Quaternion.Inverse(reverbProbe.transform.rotation);
+      bounds.size = reverbProbe.GetScaledBoxApplicationRegionSize();
+      if (!bounds.Contains(rotationInverse * relativePosition)) {
+        return false;
+      }
+    }
+    // Then the visibility test.
+    if (reverbProbe.onlyApplyWhenVisible &&
+        ResonanceAudio.ComputeOcclusion(reverbProbe.transform) > 0.0f) {
+      return false;
+    }
+
+    return true;
   }
 }

@@ -28,21 +28,13 @@ public class ResonanceAudioListenerEditor : Editor {
   private SerializedProperty recorderSeamless = null;
   private SerializedProperty recorderSourceTag = null;
 
-  private GUIContent globalGainLabel = new GUIContent("Global Gain (dB)",
-     "Sets the global gain of the system. Can be used to adjust the overall output volume.");
-  private GUIContent occlusionMaskLabel = new GUIContent("Occlusion Mask",
-     "Sets the global layer mask for occlusion detection.");
-  private GUIContent stereoSpeakerModeLabel = new GUIContent("Enable Stereo Speaker Mode",
-     "Sets whether the system should use stereo-panning only rendering mode. This mode is " +
-     "recommended only when the audio output is routed to a stereo loudspeaker configuration.");
+  private GUIContent globalGainDbLabel = new GUIContent("Global Gain (dB)");
+  private GUIContent stereoSpeakerModeEnabledLabel = new GUIContent("Enable Stereo Speaker Mode");
   private GUIContent recorderLabel = new GUIContent("Soundfield Recorder",
      "Soundfield recorder allows pre-baking spatial audio sources into first-order ambisonic " +
      "soundfield assets to be played back at run time.");
-  private GUIContent recorderSeamlessLabel = new GUIContent("Seamless Loop",
-      "Make record loop seamless?");
-  private GUIContent recorderSourceTagLabel = new GUIContent("Source Tag",
-      "Only the audio sources with given tag will be recorded. Choose \"Untagged\" to bypass this " +
-      "filter.");
+  private GUIContent recorderSeamlessLabel = new GUIContent("Seamless Loop");
+  private GUIContent recorderSourceTagLabel = new GUIContent("Source Tag");
 
   // Target listener instance.
   private ResonanceAudioListener listener = null;
@@ -70,15 +62,15 @@ public class ResonanceAudioListenerEditor : Editor {
     EditorGUILayout.Separator();
 
     EditorGUILayout.Slider(globalGainDb, ResonanceAudio.minGainDb, ResonanceAudio.maxGainDb,
-                           globalGainLabel);
+                           globalGainDbLabel);
 
     EditorGUILayout.Separator();
 
-    EditorGUILayout.PropertyField(occlusionMask, occlusionMaskLabel);
+    EditorGUILayout.PropertyField(occlusionMask);
 
     EditorGUILayout.Separator();
 
-    EditorGUILayout.PropertyField(stereoSpeakerModeEnabled, stereoSpeakerModeLabel);
+    EditorGUILayout.PropertyField(stereoSpeakerModeEnabled, stereoSpeakerModeEnabledLabel);
 
     EditorGUILayout.Separator();
 

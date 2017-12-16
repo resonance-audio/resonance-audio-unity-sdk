@@ -13,6 +13,7 @@
 // limitations under the License.
 
 using UnityEngine;
+using UnityEngine.Audio;
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -43,6 +44,22 @@ public static class ResonanceAudio {
   }
   private static Transform listenerTransform = null;
 
+#if UNITY_EDITOR
+  /// Default audio mixer group of the renderer.
+  public static AudioMixerGroup MixerGroup {
+    get {
+      if (mixerGroup == null) {
+        AudioMixer mixer = (Resources.Load("ResonanceAudioMixer") as AudioMixer);
+        if (mixer != null) {
+          mixerGroup = mixer.FindMatchingGroups("Master")[0];
+        }
+      }
+      return mixerGroup;
+    }
+  }
+  private static AudioMixerGroup mixerGroup = null;
+#endif  // UNITY_EDITOR
+
   /// Updates the audio listener.
   /// @note This should only be called from the main Unity thread.
   public static void UpdateAudioListener(ResonanceAudioListener listener) {
@@ -57,39 +74,42 @@ public static class ResonanceAudio {
     // Set the room properties to null, which will effectively disable the room effects.
     SetRoomProperties(IntPtr.Zero);
     SetRt60ValuesAndProxyRoomProperties(null, IntPtr.Zero);
+    if (roomPropertiesPtr != IntPtr.Zero) {
+      // Free up the unmanaged memory.
+      Marshal.FreeHGlobal(roomPropertiesPtr);
+      roomPropertiesPtr = IntPtr.Zero;
+    }
   }
 
   /// Updates the room effects of the environment with given |room| properties.
   /// @note This should only be called from the main Unity thread.
-  public static void UpdateAudioRoom(ResonanceAudioRoom currentRoom) {
-    // Update the current room effects to be applied.
-    RoomProperties roomProperties = GetRoomProperties(currentRoom);
-    // Pass the room properties into a pointer.
-    IntPtr roomPropertiesPtr = Marshal.AllocHGlobal(Marshal.SizeOf(roomProperties));
+  public static void UpdateRoom(ResonanceAudioRoom currentRoom) {
+    if (roomPropertiesPtr == IntPtr.Zero) {
+      // Allocate the unmanaged memory only once.
+      roomPropertiesPtr = Marshal.AllocHGlobal(Marshal.SizeOf(roomProperties));
+    }
+    UpdateRoomProperties(currentRoom);
     Marshal.StructureToPtr(roomProperties, roomPropertiesPtr, false);
     SetRoomProperties(roomPropertiesPtr);
     SetRt60ValuesAndProxyRoomProperties(null, IntPtr.Zero);
-    Marshal.FreeHGlobal(roomPropertiesPtr);
+    Marshal.DestroyStructure(roomPropertiesPtr, typeof(RoomProperties));
   }
 
   /// Updates the room effects of the environment with given |reverbProbe|.
   /// @note This should only be called from the main Unity thread.
   public static void UpdateReverbProbe(ResonanceAudioReverbProbe currentReverbProbe) {
-    // Room properties. Used in calculating distance attenuation.
-    RoomProperties roomProperties = GetRoomProperties(currentReverbProbe);
-    // Pass the room properties into a pointer.
-    IntPtr roomPropertiesPtr = Marshal.AllocHGlobal(Marshal.SizeOf(roomProperties));
+    if (roomPropertiesPtr == IntPtr.Zero) {
+      // Allocate the unmanaged memory only once.
+      roomPropertiesPtr = Marshal.AllocHGlobal(Marshal.SizeOf(roomProperties));
+    }
+    UpdateRoomProperties(currentReverbProbe);
     Marshal.StructureToPtr(roomProperties, roomPropertiesPtr, false);
     SetRoomProperties(roomPropertiesPtr);
-    Marshal.FreeHGlobal(roomPropertiesPtr);
-
     // Proxy room properties. Used in calculating reflection effects.
-    RoomProperties proxyRoomProperties = GetProxyRoomProperties(currentReverbProbe);
-    // Pass the proxy room properties into a pointer.
-    IntPtr proxyRoomPropertiesPtr = Marshal.AllocHGlobal(Marshal.SizeOf(proxyRoomProperties));
-    Marshal.StructureToPtr(proxyRoomProperties, proxyRoomPropertiesPtr, false);
-    SetRt60ValuesAndProxyRoomProperties(currentReverbProbe.rt60s, proxyRoomPropertiesPtr);
-    Marshal.FreeHGlobal(proxyRoomPropertiesPtr);
+    UpdateProxyRoomProperties(currentReverbProbe);
+    Marshal.StructureToPtr(roomProperties, roomPropertiesPtr, true);
+    SetRt60ValuesAndProxyRoomProperties(currentReverbProbe.rt60s, roomPropertiesPtr);
+    Marshal.DestroyStructure(roomPropertiesPtr, typeof(RoomProperties));
   }
 
   /// Starts soundfield recording.
@@ -193,6 +213,11 @@ public static class ResonanceAudio {
   /// Source directivity GUI color.
   public static readonly Color sourceDirectivityColor = 0.65f * Color.blue;
 
+#if UNITY_EDITOR && UNITY_2017_2_OR_NEWER
+  /// Spatializer plugin name.
+  public const string spatializerPluginName = "Resonance Audio";
+#endif  // UNITY_EDITOR && UNITY_2017_2_OR_NEWER
+
   /// Minimum distance threshold between |minDistance| and |maxDistance|.
   public const float distanceEpsilon = 0.01f;
 
@@ -227,7 +252,7 @@ public static class ResonanceAudio {
   public const float occlusionDetectionInterval = 0.2f;
 
   [StructLayout(LayoutKind.Sequential)]
-  public struct RoomProperties {
+  public class RoomProperties {
     // Center position of the room in world space.
     public float positionX;
     public float positionY;
@@ -276,65 +301,58 @@ public static class ResonanceAudio {
     rotation = Quaternion.LookRotation(transformMatrix.GetColumn(2), transformMatrix.GetColumn(1));
   }
 
-  // Returns room properties of the given |room|.
-  private static RoomProperties GetRoomProperties(ResonanceAudioRoom room) {
-    RoomProperties roomProperties = new RoomProperties();
+  // Updates room properties with the given |room|.
+  private static void UpdateRoomProperties(ResonanceAudioRoom room) {
     FillGeometryOfRoomProperties(room.transform.position, room.transform.rotation,
-                                 Vector3.Scale(room.transform.lossyScale, room.size),
-                                 ref roomProperties);
+                                 Vector3.Scale(room.transform.lossyScale, room.size));
     FillWallMaterialsOfRoomProperties(room.leftWall, room.rightWall, room.floor, room.ceiling,
-                                      room.frontWall, room.backWall, ref roomProperties);
+                                      room.frontWall, room.backWall);
     FillModifiersOfRoomProperties(room.reverbGainDb, room.reverbTime, room.reverbBrightness,
-                                  room.reflectivity, ref roomProperties);
-    return roomProperties;
+                                  room.reflectivity);
   }
 
-  // Returns room properties of the given |reverbProbe|. For a reverb probe, the room properties
+  // Updates room properties with the given |reverbProbe|. For a reverb probe, the room properties
   // are used only in computing the distance attenuation.
-  private static RoomProperties GetRoomProperties(ResonanceAudioReverbProbe reverbProbe) {
-    RoomProperties roomProperties = new RoomProperties();
-
-    Vector3 scale;
+  private static void UpdateRoomProperties(ResonanceAudioReverbProbe reverbProbe) {
+    Vector3 scale = Vector3.zero;
     if (reverbProbe.runtimeApplicationRegionShape ==
         ResonanceAudioReverbProbe.ApplicationRegionShape.Sphere) {
       // Use the minimum enclosing cube of the sphere for distance attenuation.
       var diameter = 2.0f * reverbProbe.GetScaledSphericalApplicationRegionRadius();
-      scale = new Vector3(diameter, diameter, diameter);
+      scale = diameter * Vector3.one;
     } else {
       scale = reverbProbe.GetScaledBoxApplicationRegionSize();
     }
-
     FillGeometryOfRoomProperties(reverbProbe.transform.position, reverbProbe.transform.rotation,
-                                 scale, ref roomProperties);
-
-    float reflectivity = 0.0f;  // Reflectivity is not a responsibility of reverb probes.
+                                 scale);
+    // Surface materials are not needed for reverb probes.
+    var surfaceMaterial = ResonanceAudioRoomManager.SurfaceMaterial.Transparent;
+    FillWallMaterialsOfRoomProperties(surfaceMaterial, surfaceMaterial, surfaceMaterial,
+                                      surfaceMaterial, surfaceMaterial, surfaceMaterial);
+    // Reflectivity is not a responsibility of reverb probes.
+    float reflectivity = 0.0f;
     FillModifiersOfRoomProperties(reverbProbe.reverbGainDb, reverbProbe.reverbTime,
-                                  reverbProbe.reverbBrightness, reflectivity, ref roomProperties);
-    return roomProperties;
+                                  reverbProbe.reverbBrightness, reflectivity);
   }
 
-  // Returns proxy room properties of the given |reverbProbe|.
-  private static RoomProperties GetProxyRoomProperties(ResonanceAudioReverbProbe reverbProbe) {
-    RoomProperties proxyRoomProperties = new RoomProperties();
+  // Updates room properties with the proxy room of the given |reverbProbe|.
+  private static void UpdateProxyRoomProperties(ResonanceAudioReverbProbe reverbProbe) {
     FillGeometryOfRoomProperties(reverbProbe.proxyRoomPosition, reverbProbe.proxyRoomRotation,
-                                 reverbProbe.proxyRoomSize, ref proxyRoomProperties);
+                                 reverbProbe.proxyRoomSize);
 
     FillWallMaterialsOfRoomProperties(reverbProbe.proxyRoomLeftWall, reverbProbe.proxyRoomRightWall,
                                       reverbProbe.proxyRoomFloor, reverbProbe.proxyRoomCeiling,
-                                      reverbProbe.proxyRoomFrontWall, reverbProbe.proxyRoomBackWall,
-                                      ref proxyRoomProperties);
-
-    float reflectivity = 1.0f;  // We do not modify the reflectivity of proxy rooms.
+                                      reverbProbe.proxyRoomFrontWall,
+                                      reverbProbe.proxyRoomBackWall);
+    // We do not modify the reflectivity of proxy rooms.
+    float reflectivity = 1.0f;
     FillModifiersOfRoomProperties(reverbProbe.reverbGainDb, reverbProbe.reverbTime,
-                                  reverbProbe.reverbBrightness, reflectivity,
-                                  ref proxyRoomProperties);
-    return proxyRoomProperties;
+                                  reverbProbe.reverbBrightness, reflectivity);
   }
 
   // Fills the geometry part (position, rotation, and dimensions) of the room properties.
   private static void FillGeometryOfRoomProperties(Vector3 position, Quaternion rotation,
-                                                   Vector3 scale,
-                                                   ref RoomProperties roomProperties) {
+                                                   Vector3 scale) {
     ConvertAudioTransformFromUnity(ref position, ref rotation);
     roomProperties.positionX = position.x;
     roomProperties.positionY = position.y;
@@ -355,8 +373,7 @@ public static class ResonanceAudio {
       ResonanceAudioRoomManager.SurfaceMaterial floor,
       ResonanceAudioRoomManager.SurfaceMaterial ceiling,
       ResonanceAudioRoomManager.SurfaceMaterial frontWall,
-      ResonanceAudioRoomManager.SurfaceMaterial backWall,
-      ref RoomProperties roomProperties) {
+      ResonanceAudioRoomManager.SurfaceMaterial backWall) {
     roomProperties.materialLeft = leftWall;
     roomProperties.materialRight = rightWall;
     roomProperties.materialBottom = floor;
@@ -368,8 +385,7 @@ public static class ResonanceAudio {
   // Fills the modifiers part (reverb gain, reverb time, reverb brightness, and reflection scalar)
   // of the room properties.
   private static void FillModifiersOfRoomProperties(float reverbGainDb, float reverbTime,
-                                                    float reverbBrightness, float reflectivity,
-                                                    ref RoomProperties roomProperties) {
+                                                    float reverbBrightness, float reflectivity) {
     roomProperties.reverbGain = ConvertAmplitudeFromDb(reverbGainDb);
     roomProperties.reverbTime = reverbTime;
     roomProperties.reverbBrightness = reverbBrightness;
@@ -385,14 +401,20 @@ public static class ResonanceAudio {
   // Occlusion layer mask.
   private static int occlusionMaskValue = -1;
 
+  // Pre-allocated room properties instance for room effects computation.
+  private static RoomProperties roomProperties = new RoomProperties();
+
+  // Unmanaged pointer to a room properties struct.
+  private static IntPtr roomPropertiesPtr = IntPtr.Zero;
+
   // 4x4 transformation matrix to be used in transform space conversion.
   private static Matrix4x4 transformMatrix = Matrix4x4.identity;
 
-#if UNITY_IOS
+#if !UNITY_EDITOR && UNITY_IOS
   private const string pluginName = "__Internal";
 #else
   private const string pluginName = "audiopluginresonanceaudio";
-#endif
+#endif  // !UNITY_EDITOR && UNITY_IOS
 
   // Listener handlers.
   [DllImport(pluginName)]

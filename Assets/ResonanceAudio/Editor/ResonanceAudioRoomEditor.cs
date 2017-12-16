@@ -35,21 +35,11 @@ public class ResonanceAudioRoomEditor : Editor {
 
   private GUIContent surfaceMaterialsLabel = new GUIContent("Surface Materials",
       "Room surface materials to calculate the acoustic properties of the room.");
-  private GUIContent surfaceMaterialLabel = new GUIContent("Surface Material",
-      "Surface material used to calculate the acoustic properties of the room.");
-  private GUIContent reflectivityLabel = new GUIContent("Reflectivity",
-      "Adjusts what proportion of the direct sound is reflected back by each surface, after an " +
-      "appropriate delay. Reverberation is unaffected by this setting.");
-  private GUIContent reverbGainLabel = new GUIContent("Gain (dB)",
-      "Applies a gain adjustment to the reverberation in the room. The default value will leave " +
-      "reverb unaffected.");
   private GUIContent reverbPropertiesLabel = new GUIContent("Reverb Properties",
       "Parameters to adjust the reverb properties of the room.");
-  private GUIContent reverbBrightnessLabel = new GUIContent("Brightness",
-      "Adjusts the balance between high and low frequencies in the reverb.");
-  private GUIContent reverbTimeLabel = new GUIContent("Time",
-      "Adjusts the overall duration of the reverb by a positive scaling factor.");
-  private GUIContent sizeLabel = new GUIContent("Size", "Sets the room dimensions.");
+  private GUIContent reverbGainDbLabel = new GUIContent("Gain (dB)");
+  private GUIContent reverbBrightnessLabel = new GUIContent("Brightness");
+  private GUIContent reverbTimeLabel = new GUIContent("Time");
 
   void OnEnable() {
     leftWall = serializedObject.FindProperty("leftWall");
@@ -77,24 +67,24 @@ public class ResonanceAudioRoomEditor : Editor {
 
     EditorGUILayout.LabelField(surfaceMaterialsLabel);
     ++EditorGUI.indentLevel;
-    DrawSurfaceMaterial(leftWall);
-    DrawSurfaceMaterial(rightWall);
-    DrawSurfaceMaterial(floor);
-    DrawSurfaceMaterial(ceiling);
-    DrawSurfaceMaterial(backWall);
-    DrawSurfaceMaterial(frontWall);
+    EditorGUILayout.PropertyField(leftWall);
+    EditorGUILayout.PropertyField(rightWall);
+    EditorGUILayout.PropertyField(floor);
+    EditorGUILayout.PropertyField(ceiling);
+    EditorGUILayout.PropertyField(backWall);
+    EditorGUILayout.PropertyField(frontWall);
     --EditorGUI.indentLevel;
 
     EditorGUILayout.Separator();
 
-    EditorGUILayout.Slider(reflectivity, 0.0f, ResonanceAudio.maxReflectivity, reflectivityLabel);
+    EditorGUILayout.Slider(reflectivity, 0.0f, ResonanceAudio.maxReflectivity);
 
     EditorGUILayout.Separator();
 
     EditorGUILayout.LabelField(reverbPropertiesLabel);
     ++EditorGUI.indentLevel;
     EditorGUILayout.Slider(reverbGainDb, ResonanceAudio.minGainDb, ResonanceAudio.maxGainDb,
-                           reverbGainLabel);
+                           reverbGainDbLabel);
     EditorGUILayout.Slider(reverbBrightness, ResonanceAudio.minReverbBrightness,
                            ResonanceAudio.maxReverbBrightness, reverbBrightnessLabel);
     EditorGUILayout.Slider(reverbTime, 0.0f, ResonanceAudio.maxReverbTime, reverbTimeLabel);
@@ -102,14 +92,9 @@ public class ResonanceAudioRoomEditor : Editor {
 
     EditorGUILayout.Separator();
 
-    EditorGUILayout.PropertyField(size, sizeLabel);
+    EditorGUILayout.PropertyField(size);
 
     serializedObject.ApplyModifiedProperties();
   }
   /// @endcond
-
-  private void DrawSurfaceMaterial(SerializedProperty surfaceMaterial) {
-    surfaceMaterialLabel.text = surfaceMaterial.displayName;
-    EditorGUILayout.PropertyField(surfaceMaterial, surfaceMaterialLabel);
-  }
 }

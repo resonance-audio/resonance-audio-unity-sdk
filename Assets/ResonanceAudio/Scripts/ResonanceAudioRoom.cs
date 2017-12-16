@@ -20,42 +20,56 @@ using System.Collections;
 [AddComponentMenu("ResonanceAudio/ResonanceAudioRoom")]
 public class ResonanceAudioRoom : MonoBehaviour {
   /// Room surface material in negative x direction.
+  [Tooltip("Left wall surface material used to calculate the acoustic properties of the room.")]
   public ResonanceAudioRoomManager.SurfaceMaterial leftWall =
       ResonanceAudioRoomManager.SurfaceMaterial.ConcreteBlockCoarse;
 
   /// Room surface material in positive x direction.
+  [Tooltip("Right wall surface material used to calculate the acoustic properties of the room.")]
   public ResonanceAudioRoomManager.SurfaceMaterial rightWall =
       ResonanceAudioRoomManager.SurfaceMaterial.ConcreteBlockCoarse;
 
   /// Room surface material in negative y direction.
+  [Tooltip("Floor surface material used to calculate the acoustic properties of the room.")]
   public ResonanceAudioRoomManager.SurfaceMaterial floor =
       ResonanceAudioRoomManager.SurfaceMaterial.ParquetOnConcrete;
 
   /// Room surface material in positive y direction.
+  [Tooltip("Ceiling surface material used to calculate the acoustic properties of the room.")]
   public ResonanceAudioRoomManager.SurfaceMaterial ceiling =
       ResonanceAudioRoomManager.SurfaceMaterial.PlasterRough;
 
   /// Room surface material in negative z direction.
+  [Tooltip("Back wall surface material used to calculate the acoustic properties of the room.")]
   public ResonanceAudioRoomManager.SurfaceMaterial backWall =
       ResonanceAudioRoomManager.SurfaceMaterial.ConcreteBlockCoarse;
 
   /// Room surface material in positive z direction.
+  [Tooltip("Front wall surface material used to calculate the acoustic properties of the room.")]
   public ResonanceAudioRoomManager.SurfaceMaterial frontWall =
       ResonanceAudioRoomManager.SurfaceMaterial.ConcreteBlockCoarse;
 
   /// Reflectivity scalar for each surface of the room.
+  [Tooltip("Adjusts what proportion of the direct sound is reflected back by each surface, after " +
+           "an appropriate delay. Reverberation is unaffected by this setting.")]
   public float reflectivity = 1.0f;
 
   /// Reverb gain modifier in decibels.
+  [Tooltip("Adjusts the reverb gain in the room.")]
   public float reverbGainDb = 0.0f;
 
   /// Reverb brightness modifier.
+  [Tooltip("Adjusts the balance between high and low frequencies in the reverb. Increasing this " +
+           "value will increase high frequencies in the reverb, while decreasing the low " +
+           "frequencies respectively.")]
   public float reverbBrightness = 0.0f;
 
   /// Reverb time modifier.
+  [Tooltip("Adjusts the overall duration of the reverb by a positive scaling factor.")]
   public float reverbTime = 1.0f;
 
   /// Size of the room (normalized with respect to scale of the game object).
+  [Tooltip("Sets the room dimensions in meters relative to the scale of the game object.")]
   public Vector3 size = Vector3.one;
 
   void OnEnable() {

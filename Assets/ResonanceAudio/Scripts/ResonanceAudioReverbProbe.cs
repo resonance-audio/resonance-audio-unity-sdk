@@ -28,30 +28,44 @@ public class ResonanceAudioReverbProbe : MonoBehaviour {
     Box = 1
   }
 
-  /// The RT-60s of the reverb baked in this probe.
+  /// The RT60s of the reverb baked in this probe.
+  [Tooltip("Time required in seconds for the reverb to decay by 60 dB for each frequency band.")]
   public float[] rt60s = new float[] {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
 
   /// Reverb gain modifier in decibels.
+  [Tooltip("Adjusts the reverb gain in the room.")]
   public float reverbGainDb = 0.0f;
 
   /// Reverb brightness modifier.
+  [Tooltip("Adjusts the balance between high and low frequencies in the reverb. Increasing this " +
+           "value will increase high frequencies in the reverb, while decreasing the low " +
+           "frequencies respectively.")]
   public float reverbBrightness = 0.0f;
 
   /// Reverb time modifier.
+  [Tooltip("Adjusts the overall duration of the reverb by a positive scaling factor.")]
   public float reverbTime = 1.0f;
 
   /// Which shape of regions of application to use at runtime to check whether the listener is
   /// inside.
+  [Tooltip("Shape of the region of application of this reverb.")]
   public ApplicationRegionShape runtimeApplicationRegionShape = ApplicationRegionShape.Box;
 
   /// Size of the box-shaped region of application, normalized with respect to scale of the game
   /// object.
+  [Tooltip("Sets the dimensions of a box-shaped region of application in meters relative to the " +
+           "scale of the game object.")]
   public Vector3 boxApplicationRegionSize = Vector3.one;
 
   /// Radius of the sphere-shaped region of application.
+  [Tooltip("Sets the radius of a spherical region of application in meters relative to the scale " +
+           "of the game object.")]
   public float sphereApplicationRegionRadius = 1.0f;
 
   /// Only apply the reverb properties if this probe is visible to the listener.
+  [Tooltip("Applies this reverb only when the center of the probe is visible from the listener. " +
+           "The visibility check will be done using physics raycast with respect to the " +
+           "Occlusion Mask selection in the ResonanceAudioListener component.")]
   public bool onlyApplyWhenVisible = true;
 
   /// Proxy room related fields. A proxy room is used to calculate real-time early reflections.
@@ -132,7 +146,7 @@ public class ResonanceAudioReverbProbe : MonoBehaviour {
   /// scale the radius (similar to how Unity handles Sphere Collider).
   public float GetScaledSphericalApplicationRegionRadius() {
     Vector3 scale = transform.lossyScale;
-    float maxScale = Mathf.Max(scale.x, scale.y, scale.z);
+    float maxScale = Mathf.Max(Mathf.Max(scale.x, scale.y), scale.z);
     return sphereApplicationRegionRadius * maxScale;
   }
 
