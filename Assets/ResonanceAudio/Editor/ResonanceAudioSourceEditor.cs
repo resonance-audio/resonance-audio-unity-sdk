@@ -28,7 +28,10 @@ public class ResonanceAudioSourceEditor : Editor {
   private SerializedProperty listenerDirectivitySharpness = null;
   private Texture2D directivityTexture = null;
   private SerializedProperty gainDb = null;
+  private SerializedProperty nearFieldEffectEnabled = null;
+  private SerializedProperty nearFieldEffectGain = null;
   private SerializedProperty occlusionEnabled = null;
+  private SerializedProperty occlusionIntensity = null;
   private SerializedProperty quality = null;
 
   private GUIContent directivityAlphaLabel = new GUIContent("Alpha");
@@ -42,7 +45,10 @@ public class ResonanceAudioSourceEditor : Editor {
       "loudness of the source depending on which way it is facing relative to the listener. " +
       "Patterns are aligned to the 'forward' direction of the parent object.");
   private GUIContent gainDbLabel = new GUIContent("Gain (dB)");
+  private GUIContent nearFieldEffectGainLabel = new GUIContent("Gain");
+  private GUIContent nearFieldEffectEnabledLabel = new GUIContent("Enable Near-Field Effect");
   private GUIContent occlusionEnabledLabel = new GUIContent("Enable Occlusion");
+  private GUIContent occlusionIntensityLabel = new GUIContent("Intensity");
 
   // Target source instance.
   private ResonanceAudioSource source = null;
@@ -55,7 +61,10 @@ public class ResonanceAudioSourceEditor : Editor {
     listenerDirectivitySharpness = serializedObject.FindProperty("listenerDirectivitySharpness");
     directivityTexture = Texture2D.blackTexture;
     gainDb = serializedObject.FindProperty("gainDb");
+    nearFieldEffectEnabled = serializedObject.FindProperty("nearFieldEffectEnabled");
+    nearFieldEffectGain = serializedObject.FindProperty("nearFieldEffectGain");
     occlusionEnabled = serializedObject.FindProperty("occlusionEnabled");
+    occlusionIntensity = serializedObject.FindProperty("occlusionIntensity");
     quality = serializedObject.FindProperty("quality");
     source = (ResonanceAudioSource) target;
   }
@@ -109,6 +118,20 @@ public class ResonanceAudioSourceEditor : Editor {
                            (int) (3.0f * EditorGUIUtility.singleLineHeight));
     EditorGUILayout.EndHorizontal();
     EditorGUILayout.PropertyField(occlusionEnabled, occlusionEnabledLabel);
+    EditorGUI.BeginDisabledGroup(!occlusionEnabled.boolValue);
+    ++EditorGUI.indentLevel;
+    EditorGUILayout.PropertyField(occlusionIntensity, occlusionIntensityLabel);
+    --EditorGUI.indentLevel;
+    EditorGUI.EndDisabledGroup();
+
+    EditorGUILayout.Separator();
+
+    EditorGUILayout.PropertyField(nearFieldEffectEnabled, nearFieldEffectEnabledLabel);
+    EditorGUI.BeginDisabledGroup(!nearFieldEffectEnabled.boolValue);
+    ++EditorGUI.indentLevel;
+    EditorGUILayout.PropertyField(nearFieldEffectGain, nearFieldEffectGainLabel);
+    --EditorGUI.indentLevel;
+    EditorGUI.EndDisabledGroup();
 
     EditorGUILayout.Separator();
 

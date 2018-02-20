@@ -45,7 +45,6 @@ public class ResonanceAudioReverbProbeEditor : Editor {
   private Color barBackgroundColor = new Color(65.0f / 255.0f, 65.0f / 255.0f, 65.0f / 255.0f);
   private Color barColor = new Color(186.0f / 255.0f, 117.0f / 255.0f, 33.0f / 255.0f);
   private const float maxBarHeight = 100.0f;
-  private const float maxRt60 = 3.0f;
   private const int rt60ValueFieldMarginLeft = 0;
   private const int rt60ValueFieldMarginRight = 5;
   private const int rt60ValueFieldMinWidth = 20;
@@ -129,7 +128,7 @@ public class ResonanceAudioReverbProbeEditor : Editor {
     // Draw the vertical bars.
     for (int i = 0; i < rt60s.arraySize; ++i) {
       float rt60 = isMultiEdit ? 0.0f : rt60s.GetArrayElementAtIndex(i).floatValue;
-      float barHeight = rt60 / maxRt60 * maxBarHeight;
+      float barHeight = maxBarHeight * rt60 / ResonanceAudio.maxReverbTime;
       var rt60ValueTextRect = rt60ValueTextRects[i];
 
       // Align the left end and width with the text fields showing the rt60 values.

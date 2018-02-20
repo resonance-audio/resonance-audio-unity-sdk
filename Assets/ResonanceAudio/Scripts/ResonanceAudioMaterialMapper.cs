@@ -13,17 +13,16 @@
 // limitations under the License.
 
 using UnityEngine;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 
-/// Resonance Audio material mapper scriptable object that holds the mapping from GUIDs to surface
-/// materials (which define the acoustic characteristics of surfaces). The GUID identifies either
-/// a Unity Material (which gives a mesh its visual appearance) of a game object or the terrain
-/// data of a terrain object.
+/// Resonance Audio material mapper scriptable object that loads a mapping from GUIDs to surface
+/// materials to generate and manage acoustic meshes for visualization and reverb computation
+/// purposes.
 public class ResonanceAudioMaterialMapper : ScriptableObject {
   // The complete mapping is achieved in two stages, the first stage is from GUID to surface
-  // materials, which will be serialized and persisted. The second stage is from GUID to acoustic
+  // materials, which is handled by the ResonanceAudioMaterialMap class and stored here
+  // as a serialized member variable |materialMap|. The second stage is from GUID to acoustic
   // meshes, which will be gathered on the fly. If the GUID identifies:
   //   - A Unity Material asset, then the acoustic meshes are generated from the game objects
   //     sharing this Unity Material. Because a game object can have multiple Unity Materials,
@@ -33,21 +32,16 @@ public class ResonanceAudioMaterialMapper : ScriptableObject {
   //
   // Conceptually,
   // The first stage:  GUID --> surface material.
-  // The second stage: GUID --> {Unity Material,
-  //                             acoustic meshes of game objects using this Unity Material,
+  // The second stage: GUID --> {acoustic meshes of game objects using a Unity Material,
   //                             sub-mesh indices of this Unity Material in their game objects}
   //
-  //                   GUID --> {terrain data,
-  //                             acoustic meshes of terrains using this terrain data}.
+  //                   GUID --> {acoustic meshes of terrains using a terrain data}.
   //
   // Thus when the user changes the surface material mapped to a GUID, the system can pass the
   // information down to the acoustic meshes that are affected.
 
   // Data used to map GUIDs to acoustic meshes of game objects sharing the same Unity Material.
   private class UnityMaterialAcousticMeshData {
-    // The Unity Material.
-    public Material unityMaterial = null;
-
     // Acoustic meshes of the game objects that use this Unity Material.
     public List<ResonanceAudioAcousticMesh> acousticMeshes = null;
 
@@ -62,9 +56,6 @@ public class ResonanceAudioMaterialMapper : ScriptableObject {
 
   // Data used to map GUIDs to acoustic meshes of terrains using the same terrain data.
   private class TerrainAcousticMeshData {
-    // The terrain data.
-    public TerrainData terrainData = null;
-
     // Acoustic meshes of the terrain objects that share the same |terainData| and will get the
     // same material mapping.
     public List<ResonanceAudioAcousticMesh> acousticMeshes = null;
@@ -77,7 +68,7 @@ public class ResonanceAudioMaterialMapper : ScriptableObject {
   // Mapping from GUIDs to surface materials. This is the only data that is serialized for this
   // class. All other mappings are "gathered" on the fly.
   [SerializeField]
-  private ResonanceAudioRoomManager.SurfaceMaterialDictionary surfaceMaterialFromGuid = null;
+  private ResonanceAudioMaterialMap materialMap = null;
 
   // Mapping from GUIDs to acoustic meshes of game objects sharing the same Unity Material.
   // Gathered on the fly for the currently loaded scenes.
@@ -96,16 +87,8 @@ public class ResonanceAudioMaterialMapper : ScriptableObject {
   [SerializeField]
   private bool includeNonStaticGameObjects = true;
 
-  // Default surface material.
-  private const ResonanceAudioRoomManager.SurfaceMaterial defaultSurfaceMaterial =
-      ResonanceAudioRoomManager.SurfaceMaterial.Transparent;
-
   /// Initializes the data members.
   public void Initialize() {
-    if (surfaceMaterialFromGuid == null) {
-      surfaceMaterialFromGuid = new ResonanceAudioRoomManager.SurfaceMaterialDictionary();
-    }
-
     unityMaterialAcousticMeshDataFromGuid = new Dictionary<string, UnityMaterialAcousticMeshData>();
     terrainAcousticMeshDataFromGuid = new Dictionary<string, TerrainAcousticMeshData>();
   }
@@ -120,7 +103,7 @@ public class ResonanceAudioMaterialMapper : ScriptableObject {
     BuildTerrainData(activeTerrains, guidsForTerrains, surfaceMaterialShader);
 
     // Apply the material mapping to all of the GUIDs.
-    ApplyMaterialMappingToGuids(surfaceMaterialFromGuid.Keys.ToList());
+    ApplyMaterialMappingToGuids(materialMap.GuidList());
 
     // Apply object filtering by layers and by the static flags of the game objects.
     ApplyObjectFiltering();
@@ -131,28 +114,6 @@ public class ResonanceAudioMaterialMapper : ScriptableObject {
     var acousticMeshes = GetIncludedAcousticMeshes();
     for (int i = 0; i < acousticMeshes.Count; ++i) {
       acousticMeshes[i].Render();
-    }
-  }
-
-  /// Gets the Unity Material mapped from a GUID. Returns null if a mapping cannot be found in the
-  /// currently loaded scenes.
-  public Material GetUnityMaterial(string guid) {
-    UnityMaterialAcousticMeshData data;
-    if (unityMaterialAcousticMeshDataFromGuid.TryGetValue(guid, out data)) {
-      return data.unityMaterial;
-    } else {
-      return null;
-    }
-  }
-
-  /// Gets the terrain data mapped from a GUID. Returns null if a mapping cannot be found in the
-  /// currently loaded scenes.
-  public TerrainData GetTerrainData(string guid) {
-    TerrainAcousticMeshData data;
-    if (terrainAcousticMeshDataFromGuid.TryGetValue(guid, out data)) {
-      return data.terrainData;
-    } else {
-      return null;
     }
   }
 
@@ -214,21 +175,19 @@ public class ResonanceAudioMaterialMapper : ScriptableObject {
       // Each Unity Material of a mesh renderer correspondes to a sub-mesh.
       var guidsForMeshRenderer = guidsForMeshRenderers[meshRendererIndex];
       for (int subMeshIndex = 0; subMeshIndex < unityMaterials.Length; ++subMeshIndex) {
-        // Find the GUID that identifies this Unity Material.
-        var unityMaterial = unityMaterials[subMeshIndex];
-        string guid = guidsForMeshRenderer[subMeshIndex];
-
-        // If this guid is not mapped to a surface material yet, map it to the default surface
-        // material.
-        if (!surfaceMaterialFromGuid.ContainsKey(guid)) {
-          surfaceMaterialFromGuid.Add(guid, defaultSurfaceMaterial);
+        // Skip materials that are used by non-triangular sub-meshes (points, lines, etc.).
+        if (!acousticMesh.IsSubMeshTriangular(subMeshIndex)) {
+          continue;
         }
+
+        // Find the GUID that identifies this Unity Material.
+        string guid = guidsForMeshRenderer[subMeshIndex];
+        materialMap.AddDefaultMaterialIfGuidUnmapped(guid);
 
         if (!unityMaterialAcousticMeshDataFromGuid.ContainsKey(guid)) {
           unityMaterialAcousticMeshDataFromGuid[guid] = new UnityMaterialAcousticMeshData();
         }
         UnityMaterialAcousticMeshData data = unityMaterialAcousticMeshDataFromGuid[guid];
-        data.unityMaterial = unityMaterial;
         data.acousticMeshes.Add(acousticMesh);
         data.subMeshIndices.Add(subMeshIndex);
       }
@@ -247,18 +206,12 @@ public class ResonanceAudioMaterialMapper : ScriptableObject {
       // Generate an acoustic mesh for the terrain object.
       var acousticMesh = ResonanceAudioAcousticMesh.GenerateFromTerrain(terrain,
                                                                         surfaceMaterialShader);
-
-      // If this guid is not mapped to a surface material yet, map it to the default surface
-      // material.
-      if (!surfaceMaterialFromGuid.ContainsKey(guid)) {
-        surfaceMaterialFromGuid.Add(guid, defaultSurfaceMaterial);
-      }
+      materialMap.AddDefaultMaterialIfGuidUnmapped(guid);
 
       if (!terrainAcousticMeshDataFromGuid.ContainsKey(guid)) {
         terrainAcousticMeshDataFromGuid[guid] = new TerrainAcousticMeshData();
       }
       TerrainAcousticMeshData data = terrainAcousticMeshDataFromGuid[guid];
-      data.terrainData = terrain.terrainData;
       data.acousticMeshes.Add(acousticMesh);
     }
   }
@@ -269,7 +222,7 @@ public class ResonanceAudioMaterialMapper : ScriptableObject {
   private void ApplyMaterialMappingToGuids(List<string> guids) {
     for (int i = 0; i < guids.Count; ++i) {
       var guid = guids[i];
-      ResonanceAudioRoomManager.SurfaceMaterial surfaceMaterial = surfaceMaterialFromGuid[guid];
+      var surfaceMaterial = materialMap.GetMaterialFromGuid(guid);
       if (unityMaterialAcousticMeshDataFromGuid.ContainsKey(guid)) {
         ApplySurfaceMaterialToGameObjects(surfaceMaterial, guid);
       } else if (terrainAcousticMeshDataFromGuid.ContainsKey(guid)) {

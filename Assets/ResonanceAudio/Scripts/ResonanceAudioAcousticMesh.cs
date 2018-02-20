@@ -66,8 +66,7 @@ public class ResonanceAudioAcousticMesh {
                                                                   Shader surfaceMaterialShader) {
     var sourceObject = meshFilter.gameObject;
     var sourceMesh = meshFilter.sharedMesh;
-    var sourceTriangles = sourceMesh.triangles;
-    int numTriangleIndices = sourceTriangles.Length;
+    int numTriangleIndices = CountTriangleIndices(sourceMesh);
     int numVertices = sourceMesh.vertexCount;
 
     ResonanceAudioAcousticMesh acousticMesh = new ResonanceAudioAcousticMesh();
@@ -202,6 +201,24 @@ public class ResonanceAudioAcousticMesh {
     return true;
   }
 
+  /// Whether the sub-mesh is a triangular mesh.
+  public bool IsSubMeshTriangular(int subMeshIndex) {
+    return triangleRangesFromSubMesh[subMeshIndex].length > 0;
+  }
+
+  // Finds how many indices are used for triangles in |sourceMesh|, which may contain other kinds
+  // of sub-meshes such as lines and points.
+  private static int CountTriangleIndices(Mesh sourceMesh) {
+    int numTriangleIndices = 0;
+    for (int subMeshIndex = 0; subMeshIndex < sourceMesh.subMeshCount; ++subMeshIndex) {
+      var topology = sourceMesh.GetTopology(subMeshIndex);
+      if (topology == MeshTopology.Triangles) {
+        numTriangleIndices += (int) sourceMesh.GetIndexCount(subMeshIndex);
+      }
+    }
+    return numTriangleIndices;
+  }
+
   // Finds how to sub-sample the height map so that the total number of vertices is no greater than
   // 65,000. The dimensions of the sub-sampled heightMap will be m-by-n, with each cell being
   // |subSampleStep| times larger than the original cell, and will have
@@ -287,6 +304,10 @@ public class ResonanceAudioAcousticMesh {
     int triangleIndex = 0;
     for (int subMeshIndex = 0; subMeshIndex < sourceMesh.subMeshCount; ++subMeshIndex) {
       triangleRangesFromSubMesh[subMeshIndex].start = triangleIndex / 3;
+      if (sourceMesh.GetTopology(subMeshIndex) != MeshTopology.Triangles) {
+        triangleRangesFromSubMesh[subMeshIndex].length = 0;
+        continue;
+      }
 
       var subMeshTriangles = sourceMesh.GetTriangles(subMeshIndex);
       for (int j = 0; j < subMeshTriangles.Length; j += 3) {

@@ -240,7 +240,7 @@ public static class ResonanceAudio {
   public const float minReverbBrightness = -1.0f;
 
   /// Maximum allowed reverb time modifier value.
-  public const float maxReverbTime = 3.0f;
+  public const float maxReverbTime = 10.0f;
 
   /// Maximum allowed reflectivity multiplier of a room surface material.
   public const float maxReflectivity = 2.0f;

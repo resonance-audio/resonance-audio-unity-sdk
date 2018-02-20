@@ -60,10 +60,28 @@ public class ResonanceAudioSource : MonoBehaviour {
   [Tooltip("Applies a gain to the source for adjustment of relative loudness.")]
   public float gainDb = 0.0f;
 
+  /// Denotes whether the near field effect should be applied.
+  [Tooltip("Sets whether the near field effect should be applied when the distance between the " +
+           "source and the listener is less than 1m (in Unity units).")]
+  public bool nearFieldEffectEnabled = false;
+
+  /// Near field effect gain.
+  [Range(0.0f, 9.0f)]
+  [Tooltip("Sets the nearfield effect gain. Note that the near field effect could result in " +
+           "up to ~9x gain boost on the source input, therefore, it is advised to set smaller " +
+           "gain values for louder sound sources to avoid clipping of the output signal.")]
+  public float nearFieldEffectGain = 1.0f;
+
   /// Occlusion effect toggle.
   [Tooltip("Sets whether the sound of the source should be occluded when there are other objects " +
            "between the source and the listener.")]
   public bool occlusionEnabled = false;
+
+  /// Occlusion effect intensity.
+  [Range(0.0f, 10.0f)]
+  [Tooltip("Sets the occlusion effect intensity. Higher values will result in a stronger effect " +
+           "when the source is occluded.")]
+  public float occlusionIntensity = 1.0f;
 
   /// Rendering quality of the audio source.
   [Tooltip("Sets the quality mode in which the spatial audio will be rendered. Higher quality " +
@@ -85,7 +103,7 @@ public class ResonanceAudioSource : MonoBehaviour {
     ListenerDirectivitySharpness = 7,  // Listener directivity sharpness.
     Occlusion = 8,  // Occlusion intensity.
     Quality = 9,  // Source audio rendering quality.
-    MinDistance = 10,  // Minimum distance for distance-based attenuation.
+    NearFieldEffectGain = 10,  // Near field effect gain.
     Volume = 11,  // Volume.
   }
 
@@ -131,7 +149,7 @@ public class ResonanceAudioSource : MonoBehaviour {
       currentOcclusion = 0.0f;
     } else if (Time.time >= nextOcclusionUpdate) {
       nextOcclusionUpdate = Time.time + ResonanceAudio.occlusionDetectionInterval;
-      currentOcclusion = ResonanceAudio.ComputeOcclusion(transform);
+      currentOcclusion = occlusionIntensity * ResonanceAudio.ComputeOcclusion(transform);
     }
     UpdateSource();
   }
@@ -162,9 +180,8 @@ public class ResonanceAudioSource : MonoBehaviour {
                                       listenerDirectivitySharpness);
       audioSource.SetSpatializerFloat((int) EffectData.Occlusion, currentOcclusion);
       audioSource.SetSpatializerFloat((int) EffectData.Quality, (float) quality);
-#if !UNITY_2018_1_OR_NEWER
-      audioSource.SetSpatializerFloat((int) EffectData.MinDistance, audioSource.minDistance);
-#endif  // !UNITY_2018_1_OR_NEWER
+      audioSource.SetSpatializerFloat((int) EffectData.NearFieldEffectGain,
+                                      nearFieldEffectEnabled ? nearFieldEffectGain: 0.0f);
     }
   }
 
