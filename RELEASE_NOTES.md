@@ -1,6 +1,16 @@
 # Release notes
 
-## Resonance Audio SDK for Unity v1.2.0
+## Resonance Audio SDK for Unity v1.2.1
+
+### Bug fixes
+* Fixed [issue #23](https://github.com/resonance-audio/resonance-audio-unity-sdk/issues/23) where a fatal error would be raised if a game object doesn't have an assigned mesh.
+* Fixed [issue #24](https://github.com/resonance-audio/resonance-audio-unity-sdk/issues/24) where `ResonanceAudioBuildProcessor` gave a compiler error in Unity 2018.1.
+
+### Other changes
+
+* Major refactor and cleanup in room effects scripts.
+
+## Resonance Audio SDK for Unity v1.2.0 (2018-02-20)
 
 ### Additions
 * Added advanced near-field effect for sound sources less than 1 meter from the listener. Introduced `ResonanceAudioSource.nearFieldEffectEnabled` and `ResonanceAudioSource.nearFieldEffectGain` parameters to simulate the effect of sound sources being very close to the listener's ears. Note that this effect could result in up to ~9x gain boost on the source input. Therefore, it is advised to set smaller gain values or reduce the input gain for louder sound sources to avoid clipping of the output signal.

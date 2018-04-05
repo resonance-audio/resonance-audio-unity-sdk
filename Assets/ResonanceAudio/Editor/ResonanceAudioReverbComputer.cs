@@ -126,39 +126,17 @@ public static class ResonanceAudioReverbComputer {
     // Initializes the reverb computation engine: creates the scene, sets up the surface materials,
     // and prepares the ray tracer.
     ResonanceAudio.InitializeReverbComputer(vertices, triangles, materials, scatteringCoefficient);
-
     // Iterate through the selected reverb probes.
     for (int i = 0; i < selectedReverbProbes.Count; ++i) {
       var reverbProbe = selectedReverbProbes[i];
-      string probeName = "Probe[" + i + "] " + reverbProbe.gameObject.name;
       Undo.RecordObject(reverbProbe, "Bake Reverb To Reverb Probes");
-
       // Compute the RT60s and estimate the proxy room.
-      var probePosition = reverbProbe.gameObject.transform.position;
-      var outputRt60s = reverbProbe.rt60s;
-      ResonanceAudio.RoomProperties outputProxyRoomProperties = new ResonanceAudio.RoomProperties();
-      if (!ResonanceAudio.ComputeRt60sAndProxyRoom(totalNumPaths, numPathsPerBatch, maxDepth,
-                                                   energyThreshold, probePosition,
-                                                   listenerSphereRadius, ref outputRt60s,
-                                                   ref outputProxyRoomProperties)) {
-        Debug.LogError("FAILED c++ ComputeRT60sAndProxyRoom for " + probeName);
+      if (!ResonanceAudio.ComputeRt60sAndProxyRoom(reverbProbe, totalNumPaths, numPathsPerBatch,
+                                                   maxDepth, energyThreshold,
+                                                   listenerSphereRadius)) {
+        Debug.LogError("Failed to compute reverb probe[" + i + "] " + reverbProbe.gameObject.name);
         return false;
       }
-
-      // Validate the computed RT60s for all frequency bands to the reverb probe.
-      for (int band = 0; band < outputRt60s.Length; ++band) {
-        float outputRt60Value = outputRt60s[band];
-        if (Single.IsNaN(outputRt60Value) || Single.IsInfinity(outputRt60Value)) {
-          Debug.Log("Invalid RT60 for " + probeName + ": " + outputRt60Value + "; set to zero");
-          outputRt60Value = 0.0f;
-        } else if (outputRt60Value > ResonanceAudio.maxReverbTime || outputRt60Value < 0.0f) {
-          outputRt60Value = Mathf.Clamp(outputRt60Value, 0.0f, ResonanceAudio.maxReverbTime);
-        }
-        outputRt60s[band] = outputRt60Value;
-      }
-
-      // Copy the estimated proxy room properties to the reverb probe.
-      reverbProbe.SetProxyRoomProperties(outputProxyRoomProperties);
     }
     return true;
   }

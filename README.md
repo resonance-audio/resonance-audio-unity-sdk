@@ -2,7 +2,7 @@
 
 This SDK enables high-quality spatial audio on mobile and desktop platforms.
 
-Copyright (c) 2017 Google Inc. All rights reserved.
+Copyright (c) 2018 Google Inc. All rights reserved.
 
 ## Downloads
 

@@ -66,6 +66,12 @@ public class ResonanceAudioAcousticMesh {
                                                                   Shader surfaceMaterialShader) {
     var sourceObject = meshFilter.gameObject;
     var sourceMesh = meshFilter.sharedMesh;
+    if (sourceMesh == null) {
+      Debug.LogWarning("GameObject: " + sourceObject.name + " has no mesh and will not be " +
+                       "included in reverb baking.");
+      return null;
+    }
+
     int numTriangleIndices = CountTriangleIndices(sourceMesh);
     int numVertices = sourceMesh.vertexCount;
 

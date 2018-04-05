@@ -83,6 +83,38 @@ public static class ResonanceAudioRoomManager {
     private List<SurfaceMaterial> surfaceMaterials;
   }
 
+  /// Returns the room effects gain of the current room region for the given |sourcePosition|.
+  public static float ComputeRoomEffectsGain(Vector3 sourcePosition) {
+    if (roomEffectsRegions.Count == 0) {
+      // No room effects present, return default value.
+      return 1.0f;
+    }
+    float distanceToRoom = 0.0f;
+    var lastRoomEffectsRegion = roomEffectsRegions[roomEffectsRegions.Count - 1];
+    if (lastRoomEffectsRegion.room != null) {
+      var room = lastRoomEffectsRegion.room;
+      bounds.size = Vector3.Scale(room.transform.lossyScale, room.size);
+      Quaternion rotationInverse = Quaternion.Inverse(room.transform.rotation);
+      Vector3 relativePosition = rotationInverse * (sourcePosition - room.transform.position);
+      Vector3 closestPosition = bounds.ClosestPoint(relativePosition);
+      distanceToRoom = Vector3.Distance(relativePosition, closestPosition);
+    } else {
+      var reverbProbe = lastRoomEffectsRegion.reverbProbe;
+      Vector3 relativePosition = sourcePosition - reverbProbe.transform.position;
+      if (reverbProbe.regionShape == ResonanceAudioReverbProbe.RegionShape.Box) {
+        bounds.size = reverbProbe.GetScaledBoxRegionSize();
+        Quaternion rotationInverse = Quaternion.Inverse(reverbProbe.transform.rotation);
+        relativePosition = rotationInverse * relativePosition;
+        Vector3 closestPosition = bounds.ClosestPoint(relativePosition);
+        distanceToRoom = Vector3.Distance(relativePosition, closestPosition);
+      } else {
+        float radius = reverbProbe.GetScaledSphericalRegionRadius();
+        distanceToRoom = Mathf.Max(0.0f, relativePosition.magnitude - radius);
+      }
+    }
+    return ComputeRoomEffectsAttenuation(distanceToRoom);
+  }
+
   /// Adds or removes a Resonance Audio room depending on whether the listener is inside |room|.
   public static void UpdateRoom(ResonanceAudioRoom room) {
     UpdateRoomEffectsRegions(room, IsListenerInsideRoom(room));
@@ -174,7 +206,14 @@ public static class ResonanceAudioRoomManager {
     }
   }
 
-  /// Returns whether the listener is currently inside the given |room| boundaries.
+  // Returns the room effects attenuation with respect to the given |distance| to a room region.
+  private static float ComputeRoomEffectsAttenuation(float distanceToRoom) {
+    // Shift the attenuation curve by 1.0f to avoid zero division.
+    float distance = 1.0f + distanceToRoom;
+    return 1.0f / Mathf.Pow(distance, 2.0f);
+  }
+
+  // Returns whether the listener is currently inside the given |room| boundaries.
   private static bool IsListenerInsideRoom(ResonanceAudioRoom room) {
     bool isInside = false;
     Transform listenerTransform = ResonanceAudio.ListenerTransform;
@@ -188,8 +227,8 @@ public static class ResonanceAudioRoomManager {
     return isInside;
   }
 
-  /// Returns whether the listener is currently inside the application region of the given
-  /// |reverb_probe|, subject to the visibility test if |reverbProbe.onlyWhenVisible| is true.
+  // Returns whether the listener is currently inside the application region of the given
+  // |reverb_probe|, subject to the visibility test if |reverbProbe.onlyWhenVisible| is true.
   private static bool IsListenerInsideVisibleReverbProbe(ResonanceAudioReverbProbe reverbProbe) {
     Transform listenerTransform = ResonanceAudio.ListenerTransform;
     if (listenerTransform == null) {
@@ -198,14 +237,13 @@ public static class ResonanceAudioRoomManager {
     Vector3 relativePosition = listenerTransform.position - reverbProbe.transform.position;
 
     // First the containing test.
-    if (reverbProbe.runtimeApplicationRegionShape ==
-        ResonanceAudioReverbProbe.ApplicationRegionShape.Sphere) {
-      if (relativePosition.magnitude > reverbProbe.GetScaledSphericalApplicationRegionRadius()) {
+    if (reverbProbe.regionShape == ResonanceAudioReverbProbe.RegionShape.Sphere) {
+      if (relativePosition.magnitude > reverbProbe.GetScaledSphericalRegionRadius()) {
         return false;
       }
     } else {
       Quaternion rotationInverse = Quaternion.Inverse(reverbProbe.transform.rotation);
-      bounds.size = reverbProbe.GetScaledBoxApplicationRegionSize();
+      bounds.size = reverbProbe.GetScaledBoxRegionSize();
       if (!bounds.Contains(rotationInverse * relativePosition)) {
         return false;
       }

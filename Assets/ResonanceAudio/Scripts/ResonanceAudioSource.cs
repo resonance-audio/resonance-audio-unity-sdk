@@ -95,7 +95,7 @@ public class ResonanceAudioSource : MonoBehaviour {
   private enum EffectData {
     Id = 0,  // ID.
     DistanceAttenuation = 1,  // Computed distance attenuation.
-    BypassRoomEffects = 2,  // Should bypass room effects?
+    RoomEffectsGain = 2,  // Room effects gain.
     Gain = 3,  // Gain.
     DirectivityAlpha = 4,  // Source directivity alpha.
     DirectivitySharpness = 5,  // Source directivity sharpness.
@@ -158,8 +158,10 @@ public class ResonanceAudioSource : MonoBehaviour {
   private void UpdateSource() {
     if (audioSource.clip != null && audioSource.clip.ambisonic) {
       // Use ambisonic decoder.
-      audioSource.SetAmbisonicDecoderFloat((int) EffectData.BypassRoomEffects,
-                                           bypassRoomEffects ? 1.0f : 0.0f);
+      audioSource.SetAmbisonicDecoderFloat(
+        (int)EffectData.RoomEffectsGain,
+        bypassRoomEffects ? 0.0f
+                          : ResonanceAudioRoomManager.ComputeRoomEffectsGain(transform.position));
       audioSource.SetAmbisonicDecoderFloat((int) EffectData.Gain,
                                            ResonanceAudio.ConvertAmplitudeFromDb(gainDb));
 #if !UNITY_2018_1_OR_NEWER
@@ -168,8 +170,10 @@ public class ResonanceAudioSource : MonoBehaviour {
 #endif  // !UNITY_2018_1_OR_NEWER
     } else if (audioSource.spatialize) {
       // Use spatializer.
-      audioSource.SetSpatializerFloat((int) EffectData.BypassRoomEffects,
-                                      bypassRoomEffects ? 1.0f : 0.0f);
+      audioSource.SetSpatializerFloat(
+        (int)EffectData.RoomEffectsGain,
+        bypassRoomEffects ? 0.0f
+                          : ResonanceAudioRoomManager.ComputeRoomEffectsGain(transform.position));
       audioSource.SetSpatializerFloat((int) EffectData.Gain,
                                       ResonanceAudio.ConvertAmplitudeFromDb(gainDb));
       audioSource.SetSpatializerFloat((int) EffectData.DirectivityAlpha, directivityAlpha);
