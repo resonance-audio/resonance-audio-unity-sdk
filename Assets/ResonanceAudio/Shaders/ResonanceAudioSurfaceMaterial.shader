@@ -15,7 +15,7 @@
 /// A shader to show color coding of surface materials mapped to triangles.
 Shader "ResonanceAudio/SurfaceMaterial" {
   SubShader {
-    Tags { "DisableBatching" = "True" "RenderType" = "Acoustic" }
+    Tags { "DisableBatching" = "True" "RenderType" = "Transparent" }
     Pass {
       CGPROGRAM
       #pragma vertex vert
